@@ -27,7 +27,7 @@
   },
   "homepage": "https://github.com/peretzp/download-router#readme",
   "engines": {
-    "node": ">=16.0.0"
+    "node": ">=19.0.0"
   },
   "files": [
     "download-router.js",

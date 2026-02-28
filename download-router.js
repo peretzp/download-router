@@ -3,19 +3,20 @@
  * download-router — Self-organizing file router
  *
  * Watches a directory and routes files to destinations based on JSON rules.
- * Uses fswatch for file system events, applies rules after files stabilize.
+ * Zero external dependencies. Uses Node's built-in fs.watch for file events.
  *
  * Usage:
  *   download-router                    # One-time scan of ~/Downloads
  *   download-router --daemon           # Watch continuously
  *   download-router --dry-run          # Show what would happen
+ *   download-router --status           # Show routing stats
  *   download-router --dir ~/Desktop    # Watch a different directory
  *   download-router --rules rules.json # Use a specific rules file
  */
 
 const fs = require('fs');
 const path = require('path');
-const { execSync, spawn } = require('child_process');
+const { execSync } = require('child_process');
 
 const HOME = process.env.HOME || process.env.USERPROFILE || '';
 
@@ -32,6 +33,7 @@ function getArg(flag, fallback) {
 const WATCH_DIR = path.resolve(expandPath(getArg('--dir', '~/Downloads')));
 const RULES_FILE = path.resolve(expandPath(getArg('--rules', path.join(WATCH_DIR, '.download-rules.json'))));
 const LOG_FILE = expandPath(getArg('--log', '~/.download-router.log'));
+const STATS_FILE = expandPath('~/.download-router-stats.json');
 
 function expandPath(p) {
   return p.replace(/^~/, HOME);
@@ -59,8 +61,75 @@ function loadConfig() {
   return JSON.parse(raw);
 }
 
+// --- Stats tracking ---
+
+function loadStats() {
+  try {
+    return JSON.parse(fs.readFileSync(STATS_FILE, 'utf8'));
+  } catch {
+    return { total_routed: 0, by_rule: {}, by_day: {}, started: new Date().toISOString() };
+  }
+}
+
+function saveStats(stats) {
+  try {
+    fs.writeFileSync(STATS_FILE, JSON.stringify(stats, null, 2) + '\n');
+  } catch {}
+}
+
+function recordRouted(ruleName) {
+  const stats = loadStats();
+  stats.total_routed = (stats.total_routed || 0) + 1;
+  stats.by_rule[ruleName] = (stats.by_rule[ruleName] || 0) + 1;
+  const today = new Date().toISOString().slice(0, 10);
+  stats.by_day[today] = (stats.by_day[today] || 0) + 1;
+  stats.last_routed = new Date().toISOString();
+  saveStats(stats);
+}
+
+function showStatus() {
+  const stats = loadStats();
+  const config = loadConfig();
+
+  console.log('download-router status');
+  console.log('='.repeat(40));
+  console.log(`Watching:       ${WATCH_DIR}`);
+  console.log(`Rules file:     ${RULES_FILE}`);
+  console.log(`Rules loaded:   ${config.rules.length}`);
+  console.log(`Total routed:   ${stats.total_routed || 0}`);
+  console.log(`Tracking since: ${stats.started || 'unknown'}`);
+  console.log(`Last routed:    ${stats.last_routed || 'never'}`);
+  console.log('');
+
+  if (stats.by_rule && Object.keys(stats.by_rule).length > 0) {
+    console.log('By rule:');
+    const sorted = Object.entries(stats.by_rule).sort((a, b) => b[1] - a[1]);
+    for (const [rule, count] of sorted) {
+      console.log(`  ${String(count).padStart(4)}  ${rule}`);
+    }
+    console.log('');
+  }
+
+  // Show last 7 days
+  if (stats.by_day && Object.keys(stats.by_day).length > 0) {
+    console.log('Last 7 days:');
+    const days = Object.entries(stats.by_day).sort((a, b) => b[0].localeCompare(a[0])).slice(0, 7);
+    for (const [day, count] of days) {
+      console.log(`  ${day}  ${count} files`);
+    }
+  }
+
+  // Count files currently in watch dir
+  try {
+    const files = fs.readdirSync(WATCH_DIR).filter(f => !f.startsWith('.'));
+    console.log('');
+    console.log(`Files in ${path.basename(WATCH_DIR)}: ${files.length}`);
+  } catch {}
+}
+
+// --- Matching ---
+
 function matchesPattern(filename, pattern) {
-  // Convert glob pattern to regex
   const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&');
   const regex = new RegExp('^' + escaped.replace(/\*/g, '.*').replace(/\?/g, '.') + '$', 'i');
   return regex.test(filename);
@@ -69,6 +138,15 @@ function matchesPattern(filename, pattern) {
 function getFileSize(filepath) {
   try {
     return fs.statSync(filepath).size;
+  } catch {
+    return 0;
+  }
+}
+
+function getFileAgeDays(filepath) {
+  try {
+    const stats = fs.statSync(filepath);
+    return (Date.now() - stats.mtimeMs) / (1000 * 60 * 60 * 24);
   } catch {
     return 0;
   }
@@ -85,12 +163,23 @@ function parseSizeString(sizeStr) {
   return value * (multipliers[unit] || 1);
 }
 
+function parseAgeString(ageStr) {
+  // Accepts: "7d", "30d", "1h", "24h", "60m"
+  const match = ageStr.match(/^(\d+)(m|h|d)?$/i);
+  if (!match) return 0;
+
+  const value = parseInt(match[1]);
+  const unit = (match[2] || 'd').toLowerCase();
+
+  const multipliers = { m: 1 / (60 * 24), h: 1 / 24, d: 1 };
+  return value * (multipliers[unit] || 1);
+}
+
 function matchesRule(filename, filepath, rule) {
-  // Check pattern match
   const patternMatch = rule.patterns.some(p => matchesPattern(filename, p));
   if (!patternMatch) return false;
 
-  // Check contains (filename must contain one of these strings)
+  // Keyword contains
   if (rule.contains && rule.contains.length > 0) {
     const hasMatch = rule.contains.some(keyword =>
       filename.toLowerCase().includes(keyword.toLowerCase())
@@ -98,7 +187,7 @@ function matchesRule(filename, filepath, rule) {
     if (!hasMatch) return false;
   }
 
-  // Check exclude (filename must NOT contain any of these)
+  // Keyword exclude
   if (rule.exclude && rule.exclude.length > 0) {
     const hasExclude = rule.exclude.some(keyword =>
       filename.toLowerCase().includes(keyword.toLowerCase())
@@ -106,36 +195,41 @@ function matchesRule(filename, filepath, rule) {
     if (hasExclude) return false;
   }
 
-  // Check size constraints
+  // Size constraints
   if (rule.size_gt) {
-    const fileSize = getFileSize(filepath);
-    const minSize = parseSizeString(rule.size_gt);
-    if (fileSize <= minSize) return false;
+    if (getFileSize(filepath) <= parseSizeString(rule.size_gt)) return false;
+  }
+  if (rule.size_lt) {
+    if (getFileSize(filepath) >= parseSizeString(rule.size_lt)) return false;
   }
 
-  if (rule.size_lt) {
-    const fileSize = getFileSize(filepath);
-    const maxSize = parseSizeString(rule.size_lt);
-    if (fileSize >= maxSize) return false;
+  // Age constraints (file modification time)
+  if (rule.age_gt) {
+    if (getFileAgeDays(filepath) <= parseAgeString(rule.age_gt)) return false;
+  }
+  if (rule.age_lt) {
+    if (getFileAgeDays(filepath) >= parseAgeString(rule.age_lt)) return false;
   }
 
   return true;
 }
 
+// --- Actions ---
+
 function notify(title, message) {
   try {
     if (process.platform === 'darwin') {
       execSync(`osascript -e 'display notification "${message}" with title "${title}"'`);
+    } else if (process.platform === 'linux') {
+      execSync(`notify-send "${title}" "${message}" 2>/dev/null`);
     }
-    // Linux: could add notify-send here
-    // Windows: could add PowerShell toast here
   } catch {}
 }
 
 function applyRule(filepath, rule, config) {
   const filename = path.basename(filepath);
   const dest = expandPath(rule.destination);
-  const destPath = path.join(dest, filename);
+  let destPath = path.join(dest, filename);
 
   // Create destination if needed
   if (config.defaults.create_destinations && !fs.existsSync(dest)) {
@@ -147,10 +241,19 @@ function applyRule(filepath, rule, config) {
     }
   }
 
-  // Check if dest file already exists
+  // Conflict resolution
   if (fs.existsSync(destPath)) {
-    log(`SKIP: ${filename} → ${dest} (already exists)`);
-    return;
+    const onConflict = rule.on_conflict || 'skip';
+    if (onConflict === 'skip') {
+      log(`SKIP: ${filename} → ${dest} (already exists)`);
+      return;
+    } else if (onConflict === 'rename') {
+      const ext = path.extname(filename);
+      const base = path.basename(filename, ext);
+      const ts = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
+      destPath = path.join(dest, `${base}-${ts}${ext}`);
+    }
+    // 'overwrite' falls through to the action
   }
 
   const action = rule.action || 'move';
@@ -169,6 +272,8 @@ function applyRule(filepath, rule, config) {
       log(`COPIED: ${filename} → ${dest} (rule: ${rule.name})`);
     }
 
+    recordRouted(rule.name);
+
     if (rule.notify) {
       notify('Download Router', `${filename} → ${path.basename(dest)}`);
     }
@@ -180,30 +285,24 @@ function applyRule(filepath, rule, config) {
 function processFile(filepath) {
   const filename = path.basename(filepath);
 
-  // Skip hidden files and the rules file itself
   if (filename.startsWith('.')) return;
-
-  // Skip if file no longer exists (moved by another rule or process)
   if (!fs.existsSync(filepath)) return;
 
-  // Skip directories
   try {
     if (fs.statSync(filepath).isDirectory()) return;
   } catch {
     return;
   }
 
-  // Check file age (don't move files that might still be downloading)
+  // Don't move files that might still be downloading
   const config = loadConfig();
   const minAge = config.defaults.min_age_seconds || 300;
   const stats = fs.statSync(filepath);
   const ageSeconds = (Date.now() - stats.mtimeMs) / 1000;
 
-  if (ageSeconds < minAge) {
-    return; // Silently skip recent files
-  }
+  if (ageSeconds < minAge) return;
 
-  // Try to match against rules (first match wins)
+  // First matching rule wins
   for (const rule of config.rules) {
     if (matchesRule(filename, filepath, rule)) {
       applyRule(filepath, rule, config);
@@ -235,49 +334,43 @@ function scanDirectory() {
   log(`Scan complete. ${moved} routed, ${skipped} unchanged.`);
 }
 
+// --- Watcher (zero dependencies — uses Node's built-in fs.watch) ---
+
 function startWatcher() {
-  // Check for fswatch
+  log('Starting file system watcher (fs.watch)...');
+
+  const debounce = new Map(); // filepath → timeout
+
   try {
-    execSync('which fswatch', { stdio: 'ignore' });
-  } catch {
-    console.error('fswatch not found. Install it:');
-    console.error('  macOS:  brew install fswatch');
-    console.error('  Linux:  apt install fswatch');
-    console.error('');
-    console.error('Or run without --daemon for one-time scan mode.');
-    process.exit(1);
-  }
+    fs.watch(WATCH_DIR, { recursive: false }, (eventType, filename) => {
+      if (!filename || filename.startsWith('.')) return;
 
-  log('Starting file system watcher...');
+      const filepath = path.join(WATCH_DIR, filename);
 
-  const fswatch = spawn('fswatch', ['-r', '-l', '5', WATCH_DIR]);
-
-  fswatch.stdout.on('data', (data) => {
-    const changedFiles = data.toString().trim().split('\n');
-    for (const filepath of changedFiles) {
-      if (filepath && fs.existsSync(filepath)) {
-        setTimeout(() => {
-          try {
-            processFile(filepath);
-          } catch (err) {
-            log(`ERROR: ${err.message}`);
-          }
-        }, 2000); // Wait 2 seconds for file to stabilize
+      // Debounce: wait 3 seconds after last change before processing
+      if (debounce.has(filepath)) {
+        clearTimeout(debounce.get(filepath));
       }
-    }
-  });
 
-  fswatch.stderr.on('data', (data) => {
-    log(`fswatch error: ${data}`);
-  });
+      debounce.set(filepath, setTimeout(() => {
+        debounce.delete(filepath);
+        try {
+          if (fs.existsSync(filepath)) {
+            processFile(filepath);
+          }
+        } catch (err) {
+          log(`ERROR: ${err.message}`);
+        }
+      }, 3000));
+    });
 
-  fswatch.on('close', (code) => {
-    log(`fswatch exited with code ${code}`);
-    process.exit(code);
-  });
-
-  log(`Watching ${WATCH_DIR} for changes...`);
+    log(`Watching ${WATCH_DIR} for changes...`);
+  } catch (err) {
+    log(`WARNING: fs.watch failed (${err.message}). Falling back to interval-only polling.`);
+  }
 }
+
+// --- Init ---
 
 function initRules() {
   const sampleRules = {
@@ -349,11 +442,13 @@ function showHelp() {
 download-router — Self-organizing file router
 
 Routes files from a watched directory to destinations based on JSON rules.
+Zero external dependencies.
 
 USAGE
   download-router                     One-time scan (default: ~/Downloads)
   download-router --daemon            Watch continuously + periodic scans
   download-router --dry-run           Show what would happen without moving
+  download-router --status            Show routing stats and current state
   download-router --init              Create a starter rules file
   download-router --dir ~/Desktop     Watch a different directory
   download-router --rules rules.json  Use a specific rules file
@@ -369,34 +464,32 @@ RULES FORMAT
     exclude       Optional: filename must NOT contain any of these
     size_gt       Optional: minimum file size (e.g., "100MB")
     size_lt       Optional: maximum file size (e.g., "10MB")
+    age_gt        Optional: minimum file age (e.g., "7d", "24h", "60m")
+    age_lt        Optional: maximum file age (e.g., "30d")
     destination   Where to send matching files (~ expands to home)
     action        "move" (default) or "copy"
+    on_conflict   "skip" (default), "rename", or "overwrite"
     notify        true to get a desktop notification
 
   First matching rule wins. Order matters.
 
 EXAMPLES
-  # Route work documents to a work folder
-  {
-    "name": "Work Docs",
-    "patterns": ["*.pdf", "*.docx"],
-    "contains": ["report", "invoice", "contract"],
-    "destination": "~/Documents/Work/",
-    "action": "move"
-  }
+  # Route work documents
+  { "name": "Work Docs", "patterns": ["*.pdf"], "contains": ["invoice"],
+    "destination": "~/Documents/Work/" }
 
-  # Quarantine executables with notification
-  {
-    "name": "Suspicious",
-    "patterns": ["*.exe", "*.bat"],
-    "destination": "~/Downloads/Quarantine/",
-    "action": "move",
-    "notify": true
-  }
+  # Archive files older than 30 days
+  { "name": "Old Files", "patterns": ["*"], "age_gt": "30d",
+    "destination": "~/Downloads/Archive/" }
+
+  # Quarantine executables
+  { "name": "Suspicious", "patterns": ["*.exe", "*.bat"],
+    "destination": "~/Downloads/Quarantine/", "notify": true }
 `);
 }
 
-// Main
+// --- Main ---
+
 if (args.includes('--help') || args.includes('-h')) {
   showHelp();
   process.exit(0);
@@ -407,7 +500,11 @@ if (args.includes('--init')) {
   process.exit(0);
 }
 
-// Handle signals gracefully
+if (args.includes('--status')) {
+  showStatus();
+  process.exit(0);
+}
+
 process.on('SIGINT', () => {
   log('Shutting down...');
   process.exit(0);
@@ -427,7 +524,6 @@ log('='.repeat(50));
 const config = loadConfig();
 log(`Loaded ${config.rules.length} rules`);
 
-// Initial scan
 scanDirectory();
 
 if (DAEMON_MODE) {

@@ -30,15 +30,7 @@ cd download-router
 npm link
 ```
 
-**Requires**: Node.js 16+ and [fswatch](https://github.com/emcrisostomo/fswatch) for daemon mode.
-
-```bash
-# macOS
-brew install fswatch
-
-# Linux
-apt install fswatch
-```
+**Requires**: Node.js 19+ (uses built-in `fs.watch`). No other dependencies.
 
 ## Quick Start
 
@@ -70,6 +62,9 @@ Rules live in `.download-rules.json` inside the watched directory. Each rule:
 | `exclude` | no | Filename must NOT contain any of these |
 | `size_gt` | no | Minimum file size: `"100MB"`, `"1GB"` |
 | `size_lt` | no | Maximum file size: `"10MB"` |
+| `age_gt` | no | Minimum file age: `"7d"`, `"24h"`, `"60m"` |
+| `age_lt` | no | Maximum file age: `"30d"` |
+| `on_conflict` | no | `"skip"` (default), `"rename"`, or `"overwrite"` |
 | `notify` | no | `true` for a desktop notification on match |
 
 ### Example: Route Work Documents
@@ -117,6 +112,20 @@ This matches PDFs and Word docs whose filename contains "report", "invoice", or 
 
 Order matters — screenshots match the first rule and skip the second.
 
+### Example: Archive Old Files
+
+```json
+{
+  "name": "Stale files",
+  "patterns": ["*"],
+  "age_gt": "30d",
+  "destination": "~/Downloads/Archive/",
+  "on_conflict": "rename"
+}
+```
+
+Routes any file older than 30 days to an archive folder. If a file with the same name already exists, appends a timestamp.
+
 ## Full Rules File
 
 ```json
@@ -150,6 +159,7 @@ See `examples/` for complete rules files.
 download-router                     One-time scan (default: ~/Downloads)
 download-router --daemon            Watch continuously + periodic scans
 download-router --dry-run           Show what would happen without moving
+download-router --status            Show routing stats and current state
 download-router --init              Create a starter rules file
 download-router --dir ~/Desktop     Watch a different directory
 download-router --rules rules.json  Use a specific rules file
@@ -210,7 +220,7 @@ Then: `systemctl --user enable --now download-router`
 
 I built this because I was drowning in 336 unsorted files in my Downloads folder. I wrote 14 rules, pointed the daemon at it, and never thought about it again. It's been running as a LaunchAgent on my Mac for months.
 
-Zero dependencies. One file. ~300 lines. It just works.
+Zero dependencies. One file. Uses Node's built-in `fs.watch` — no fswatch, no chokidar, nothing to install. It just works.
 
 ## License
 
