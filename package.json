@@ -1,0 +1,38 @@
+{
+  "name": "download-router",
+  "version": "1.0.0",
+  "description": "Self-organizing file router. Watches a directory and routes files to destinations based on JSON rules.",
+  "main": "download-router.js",
+  "bin": {
+    "download-router": "./download-router.js"
+  },
+  "keywords": [
+    "downloads",
+    "file-manager",
+    "file-organizer",
+    "file-router",
+    "automation",
+    "fswatch",
+    "self-organizing",
+    "daemon"
+  ],
+  "author": "Peretz Partensky",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/peretzp/download-router.git"
+  },
+  "bugs": {
+    "url": "https://github.com/peretzp/download-router/issues"
+  },
+  "homepage": "https://github.com/peretzp/download-router#readme",
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "files": [
+    "download-router.js",
+    "README.md",
+    "LICENSE",
+    "examples/"
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "version": "1.0",
+  "description": "Basic file routing rules — documents, images, videos, audio",
+  "rules": [
+    {
+      "name": "Documents",
+      "patterns": ["*.pdf", "*.doc", "*.docx", "*.txt"],
+      "destination": "~/Documents/",
+      "action": "move"
+    },
+    {
+      "name": "Images",
+      "patterns": ["*.jpg", "*.jpeg", "*.png", "*.gif", "*.webp", "*.heic"],
+      "destination": "~/Pictures/",
+      "action": "move"
+    },
+    {
+      "name": "Videos",
+      "patterns": ["*.mp4", "*.mov", "*.avi", "*.mkv"],
+      "destination": "~/Movies/",
+      "action": "move"
+    },
+    {
+      "name": "Audio",
+      "patterns": ["*.mp3", "*.m4a", "*.wav", "*.flac"],
+      "destination": "~/Music/",
+      "action": "move"
+    },
+    {
+      "name": "Archives",
+      "patterns": ["*.zip", "*.tar.gz", "*.rar", "*.7z"],
+      "destination": "~/Downloads/Archives/",
+      "action": "move"
+    },
+    {
+      "name": "Installers",
+      "patterns": ["*.dmg", "*.pkg", "*.exe", "*.msi"],
+      "destination": "~/Downloads/Installers/",
+      "action": "move"
+    }
+  ],
+  "defaults": {
+    "min_age_seconds": 300,
+    "check_interval_seconds": 60,
+    "create_destinations": true,
+    "log_file": "~/.download-router.log"
+  }
+}

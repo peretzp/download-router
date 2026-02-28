@@ -1,0 +1,96 @@
+{
+  "version": "1.0",
+  "description": "Power user rules — context-aware routing with keyword matching, size filters, and notifications",
+  "rules": [
+    {
+      "name": "Code & Projects",
+      "patterns": ["*.zip", "*.tar.gz", "*.tgz"],
+      "contains": ["github", "repo", "project", "code"],
+      "destination": "~/Projects/Downloads/",
+      "action": "move"
+    },
+    {
+      "name": "Work Documents",
+      "patterns": ["*.pdf", "*.doc", "*.docx", "*.txt"],
+      "contains": ["resume", "cv", "contract", "invoice", "agreement", "report"],
+      "destination": "~/Documents/Work/",
+      "action": "move"
+    },
+    {
+      "name": "Personal Documents",
+      "patterns": ["*.pdf", "*.doc", "*.docx"],
+      "exclude": ["resume", "cv", "contract", "invoice"],
+      "destination": "~/Documents/Personal/",
+      "action": "move"
+    },
+    {
+      "name": "Screenshots",
+      "patterns": ["Screenshot*.png", "Screen Shot*.png", "CleanShot*.png"],
+      "destination": "~/Pictures/Screenshots/",
+      "action": "move"
+    },
+    {
+      "name": "Photos",
+      "patterns": ["*.jpg", "*.jpeg", "*.png", "*.heic", "*.raw"],
+      "exclude": ["Screenshot", "Screen Shot", "CleanShot"],
+      "destination": "~/Pictures/Downloads/",
+      "action": "move"
+    },
+    {
+      "name": "Videos",
+      "patterns": ["*.mp4", "*.mov", "*.avi", "*.mkv"],
+      "destination": "~/Movies/Downloads/",
+      "action": "move"
+    },
+    {
+      "name": "Audio",
+      "patterns": ["*.mp3", "*.m4a", "*.wav", "*.flac"],
+      "destination": "~/Music/Downloads/",
+      "action": "move"
+    },
+    {
+      "name": "Large Archives",
+      "patterns": ["*.zip", "*.tar.gz", "*.rar", "*.7z"],
+      "size_gt": "100MB",
+      "destination": "~/Downloads/Archives/Large/",
+      "action": "move"
+    },
+    {
+      "name": "Disk Images",
+      "patterns": ["*.dmg", "*.iso"],
+      "destination": "~/Applications/Installers/",
+      "action": "move"
+    },
+    {
+      "name": "Data Files",
+      "patterns": ["*.xlsx", "*.xls", "*.csv", "*.json", "*.xml"],
+      "destination": "~/Documents/Data/",
+      "action": "move"
+    },
+    {
+      "name": "Presentations",
+      "patterns": ["*.ppt", "*.pptx", "*.key"],
+      "destination": "~/Documents/Presentations/",
+      "action": "move"
+    },
+    {
+      "name": "Markdown Notes",
+      "patterns": ["*.md", "*.markdown"],
+      "destination": "~/Documents/Notes/",
+      "action": "copy"
+    },
+    {
+      "name": "Quarantine - Suspicious",
+      "patterns": ["*.exe", "*.bat", "*.sh", "*.command"],
+      "destination": "~/Downloads/Quarantine/",
+      "action": "move",
+      "notify": true
+    }
+  ],
+  "defaults": {
+    "min_age_seconds": 300,
+    "check_interval_seconds": 60,
+    "create_destinations": true,
+    "log_file": "~/.download-router.log"
+  }
+}
