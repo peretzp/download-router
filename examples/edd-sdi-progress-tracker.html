@@ -5,7 +5,7 @@
 <title>EDD SDI Download Tracker — DI-1014-230-142</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #1a1a2e; color: #eee; padding: 20px; max-width: 800px; margin: 0 auto; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #1a1a2e; color: #eee; padding: 20px; max-width: 960px; margin: 0 auto; }
   h1 { font-size: 18px; margin-bottom: 4px; color: #e94560; }
   .subtitle { font-size: 12px; color: #888; margin-bottom: 16px; }
   .stats { display: flex; gap: 16px; margin-bottom: 16px; }
@@ -15,25 +15,29 @@
   .stat.done .num { color: #4ecca3; }
   .stat.fail .num { color: #e94560; }
   .stat.pend .num { color: #f0c040; }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th { text-align: left; padding: 6px 8px; background: #16213e; color: #888; font-weight: 500; font-size: 11px; text-transform: uppercase; }
-  td { padding: 6px 8px; border-bottom: 1px solid #222; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { text-align: left; padding: 6px 8px; background: #16213e; color: #888; font-weight: 500; font-size: 11px; text-transform: uppercase; position: sticky; top: 0; }
+  td { padding: 5px 8px; border-bottom: 1px solid #222; }
   tr.done { opacity: 0.6; }
-  tr.done td:first-child::before { content: "✓ "; color: #4ecca3; }
-  tr.fail td:first-child::before { content: "✗ "; color: #e94560; }
+  tr.done td:first-child::before { content: "OK "; color: #4ecca3; font-size: 10px; }
+  tr.fail td:first-child::before { content: "!! "; color: #e94560; font-size: 10px; }
   tr.active { background: #16213e; }
-  tr.active td:first-child::before { content: "▶ "; color: #f0c040; }
-  tr.skip td:first-child::before { content: "— "; color: #666; }
+  tr.active td:first-child::before { content: ">> "; color: #f0c040; font-size: 10px; }
+  tr.skip td:first-child::before { content: "-- "; color: #666; font-size: 10px; }
   .priority-high { color: #e94560; font-weight: bold; }
   .priority-medium { color: #f0c040; }
   .priority-low { color: #666; }
-  .status { font-size: 11px; padding: 2px 6px; border-radius: 4px; }
+  .status { font-size: 11px; padding: 2px 6px; border-radius: 4px; cursor: pointer; }
   .status-pending { background: #333; color: #888; }
   .status-downloaded { background: #1a3a2a; color: #4ecca3; }
   .status-text-only { background: #2a2a1a; color: #c0a030; }
   .status-failed { background: #3a1a1a; color: #e94560; }
   .status-skipped { background: #222; color: #666; }
-  .log { background: #0d1117; border: 1px solid #333; border-radius: 8px; padding: 12px; margin-top: 16px; font-family: 'SF Mono', Monaco, monospace; font-size: 11px; max-height: 200px; overflow-y: auto; }
+  .filename-cell { max-width: 200px; }
+  .filename-cell input { background: #0d1117; border: 1px solid #333; color: #ccc; padding: 2px 4px; font-size: 11px; width: 100%; border-radius: 3px; font-family: 'SF Mono', Monaco, monospace; }
+  .filename-cell input:focus { border-color: #4ecca3; outline: none; }
+  .renamed { color: #4ecca3; font-family: 'SF Mono', Monaco, monospace; font-size: 11px; }
+  .log { background: #0d1117; border: 1px solid #333; border-radius: 8px; padding: 12px; margin-top: 16px; font-family: 'SF Mono', Monaco, monospace; font-size: 11px; max-height: 180px; overflow-y: auto; }
   .log-entry { padding: 2px 0; border-bottom: 1px solid #1a1a1a; }
   .log-entry.success { color: #4ecca3; }
   .log-entry.error { color: #e94560; }
@@ -42,13 +46,16 @@
   button { background: #e94560; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; margin: 4px; }
   button:hover { background: #c73650; }
   button.secondary { background: #16213e; }
-  .controls { margin-top: 12px; }
+  button.secondary:hover { background: #1a2744; }
+  .controls { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 4px; }
+  .section-label { font-size: 11px; color: #555; margin-top: 12px; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 1px; }
+  pre.rename-script { background: #0d1117; border: 1px solid #333; border-radius: 8px; padding: 12px; margin-top: 8px; font-size: 11px; overflow-x: auto; color: #8b949e; white-space: pre-wrap; max-height: 300px; overflow-y: auto; }
 </style>
 </head>
 <body>
 
 <h1>EDD SDI Download Tracker</h1>
-<p class="subtitle">Claim DI-1014-230-142 — Peretz Partensky — 19 Inbox Messages</p>
+<p class="subtitle">Claim DI-1014-230-142 | Peretz Partensky | 19 Inbox Messages</p>
 
 <div class="stats">
   <div class="stat done"><div class="num" id="count-done">0</div><div class="label">Downloaded</div></div>
@@ -57,48 +64,67 @@
 </div>
 
 <table>
-  <thead><tr><th>#</th><th>Date</th><th>Subject</th><th>Priority</th><th>Status</th></tr></thead>
+  <thead><tr><th>#</th><th>Date</th><th>Subject</th><th>Pri</th><th>Status</th><th>Downloaded Filename</th><th>Rename To</th></tr></thead>
   <tbody id="msg-table"></tbody>
 </table>
 
+<div class="section-label">Event Log</div>
 <div class="log" id="log"></div>
 
 <div class="controls">
   <button onclick="exportLog()">Export Log</button>
+  <button onclick="exportRenameScript()">Generate Rename Script</button>
   <button class="secondary" onclick="resetAll()">Reset All</button>
 </div>
 
+<div id="rename-output"></div>
+
 <script>
 const MESSAGES = [
-  { num: 1,  date: "11-01-2025", subject: "Additional Benefits for DI Claimants", priority: "low" },
-  { num: 2,  date: "12-08-2025", subject: "DE 429D, Notice of Computation", priority: "high" },
-  { num: 3,  date: "12-09-2025", subject: "DE 2517-18, Notice of Claim Date Adjustment", priority: "high" },
-  { num: 4,  date: "12-19-2025", subject: "DE 2517-01, Notice of Determination", priority: "high" },
-  { num: 5,  date: "01-15-2026", subject: "Response to Your inquiry", priority: "high" },
-  { num: 6,  date: "01-16-2026", subject: "Electronic Benefit Payment DE 2500E", priority: "medium" },
-  { num: 7,  date: "01-16-2026", subject: "Electronic Benefit Payment DE 2500E", priority: "medium" },
-  { num: 8,  date: "01-16-2026", subject: "Electronic Benefit Payment DE 2500E", priority: "medium" },
-  { num: 9,  date: "01-16-2026", subject: "Electronic Benefit Payment DE 2500E", priority: "medium" },
-  { num: 10, date: "02-03-2026", subject: "Electronic Benefit Payment DE 2500E", priority: "medium" },
-  { num: 11, date: "02-04-2026", subject: "New Medical Information Received", priority: "medium" },
-  { num: 12, date: "02-10-2026", subject: "Electronic Benefit Payment DE 2500E", priority: "medium" },
-  { num: 13, date: "02-11-2026", subject: "Notice of Automatic Payment", priority: "medium" },
-  { num: 14, date: "02-18-2026", subject: "Electronic Benefit Payment DE 2500E", priority: "medium" },
-  { num: 15, date: "03-03-2026", subject: "Electronic Benefit Payment DE 2500E", priority: "medium" },
-  { num: 16, date: "03-17-2026", subject: "Electronic Benefit Payment DE 2500E", priority: "medium" },
-  { num: 17, date: "03-31-2026", subject: "Electronic Benefit Payment DE 2500E", priority: "high" },
-  { num: 18, date: "04-02-2026", subject: "Electronic Benefit Payment DE 2500E", priority: "medium" },
-  { num: 19, date: "04-03-2026", subject: "DE 2525-A, Notice of Exhaustion", priority: "low" },
+  { num: 1,  date: "2025-11-01", subject: "Additional Benefits for DI Claimants", priority: "low",    formId: "" },
+  { num: 2,  date: "2025-12-08", subject: "DE 429D, Notice of Computation",       priority: "high",   formId: "DE-429D" },
+  { num: 3,  date: "2025-12-09", subject: "DE 2517-18, Claim Date Adjustment",    priority: "high",   formId: "DE-2517-18" },
+  { num: 4,  date: "2025-12-19", subject: "DE 2517-01, Notice of Determination",  priority: "high",   formId: "DE-2517-01" },
+  { num: 5,  date: "2026-01-15", subject: "Response to Your inquiry",             priority: "high",   formId: "Claim-Update-Response" },
+  { num: 6,  date: "2026-01-16", subject: "Electronic Benefit Payment DE 2500E",  priority: "medium", formId: "DE-2500E" },
+  { num: 7,  date: "2026-01-16", subject: "Electronic Benefit Payment DE 2500E",  priority: "medium", formId: "DE-2500E" },
+  { num: 8,  date: "2026-01-16", subject: "Electronic Benefit Payment DE 2500E",  priority: "medium", formId: "DE-2500E" },
+  { num: 9,  date: "2026-01-16", subject: "Electronic Benefit Payment DE 2500E",  priority: "medium", formId: "DE-2500E" },
+  { num: 10, date: "2026-02-03", subject: "Electronic Benefit Payment DE 2500E",  priority: "medium", formId: "DE-2500E" },
+  { num: 11, date: "2026-02-04", subject: "New Medical Information Received",     priority: "medium", formId: "Medical-Info" },
+  { num: 12, date: "2026-02-10", subject: "Electronic Benefit Payment DE 2500E",  priority: "medium", formId: "DE-2500E" },
+  { num: 13, date: "2026-02-11", subject: "Notice of Automatic Payment",          priority: "medium", formId: "Auto-Payment-Notice" },
+  { num: 14, date: "2026-02-18", subject: "Electronic Benefit Payment DE 2500E",  priority: "medium", formId: "DE-2500E" },
+  { num: 15, date: "2026-03-03", subject: "Electronic Benefit Payment DE 2500E",  priority: "medium", formId: "DE-2500E" },
+  { num: 16, date: "2026-03-17", subject: "Electronic Benefit Payment DE 2500E",  priority: "medium", formId: "DE-2500E" },
+  { num: 17, date: "2026-03-31", subject: "Electronic Benefit Payment DE 2500E",  priority: "high",   formId: "DE-2500E" },
+  { num: 18, date: "2026-04-02", subject: "Electronic Benefit Payment DE 2500E",  priority: "medium", formId: "DE-2500E" },
+  { num: 19, date: "2026-04-03", subject: "DE 2525-A, Notice of Exhaustion",      priority: "low",    formId: "DE-2525A" },
 ];
 
-// State persists in localStorage
-const STATE_KEY = "edd-sdi-tracker";
+const STATE_KEY = "edd-sdi-tracker-v2";
 let state = JSON.parse(localStorage.getItem(STATE_KEY) || "null") || {
   statuses: MESSAGES.map(() => "pending"),
+  filenames: MESSAGES.map(() => ""),
   log: []
 };
+// Migrate from v1 if needed
+if (!state.filenames) state.filenames = MESSAGES.map(() => "");
 
 function save() { localStorage.setItem(STATE_KEY, JSON.stringify(state)); }
+
+function idealName(i) {
+  const m = MESSAGES[i];
+  // For same-date duplicates (DE 2500E on 01-16), append a sequence letter
+  const sameDateSameForm = MESSAGES.filter((o, j) => j !== i && o.date === m.date && o.formId === m.formId);
+  let suffix = "";
+  if (sameDateSameForm.length > 0) {
+    const allSame = MESSAGES.filter(o => o.date === m.date && o.formId === m.formId);
+    const idx = allSame.indexOf(m);
+    suffix = "_" + String.fromCharCode(97 + idx); // a, b, c, d
+  }
+  return `${m.date}_${m.formId}${suffix}.pdf`;
+}
 
 function render() {
   const tbody = document.getElementById("msg-table");
@@ -114,11 +140,13 @@ function render() {
     const tr = document.createElement("tr");
     tr.className = status === "downloaded" ? "done" : status === "failed" ? "fail" : status === "text-only" ? "skip" : status === "active" ? "active" : "";
     tr.innerHTML = `
-      <td>${msg.num}</td>
+      <td>${String(msg.num).padStart(2, "0")}</td>
       <td>${msg.date}</td>
       <td>${msg.subject}</td>
       <td><span class="priority-${msg.priority}">${msg.priority}</span></td>
       <td><span class="status status-${status}" onclick="cycleStatus(${i})">${status}</span></td>
+      <td class="filename-cell"><input type="text" value="${state.filenames[i] || ''}" placeholder="chrome filename..." onchange="setFilename(${i}, this.value)" /></td>
+      <td class="renamed">${idealName(i)}</td>
     `;
     tbody.appendChild(tr);
   });
@@ -134,11 +162,17 @@ function render() {
   logEl.scrollTop = logEl.scrollHeight;
 }
 
+function setFilename(i, name) {
+  state.filenames[i] = name.trim();
+  addLog(`MSG-${MESSAGES[i].num} filename: ${name.trim()}`, "info");
+  save();
+}
+
 function cycleStatus(i) {
-  const order = ["pending", "downloaded", "text-only", "failed"];
+  const order = ["pending", "downloaded", "text-only", "failed", "skipped"];
   const cur = order.indexOf(state.statuses[i]);
   state.statuses[i] = order[(cur + 1) % order.length];
-  addLog(`MSG-${MESSAGES[i].num} → ${state.statuses[i]}`, state.statuses[i] === "downloaded" ? "success" : state.statuses[i] === "failed" ? "error" : "info");
+  addLog(`MSG-${MESSAGES[i].num} -> ${state.statuses[i]}`, state.statuses[i] === "downloaded" ? "success" : state.statuses[i] === "failed" ? "error" : "info");
   save();
   render();
 }
@@ -146,14 +180,16 @@ function cycleStatus(i) {
 function addLog(msg, type = "info") {
   const ts = new Date().toLocaleTimeString();
   state.log.push({ ts, msg, type });
-  if (state.log.length > 200) state.log = state.log.slice(-100);
+  if (state.log.length > 300) state.log = state.log.slice(-150);
   save();
 }
 
 function exportLog() {
   const lines = [`EDD SDI Download Log — ${new Date().toISOString()}`, ""];
+  lines.push("MSG | Date       | Subject                                 | Status     | Chrome Filename              | Rename To");
+  lines.push("-".repeat(130));
   MESSAGES.forEach((msg, i) => {
-    lines.push(`MSG-${String(msg.num).padStart(2, "0")} | ${msg.date} | ${msg.subject} | ${state.statuses[i]}`);
+    lines.push(`${String(msg.num).padStart(2,"0")}  | ${msg.date} | ${msg.subject.padEnd(39)} | ${(state.statuses[i]||"").padEnd(10)} | ${(state.filenames[i]||"").padEnd(28)} | ${idealName(i)}`);
   });
   lines.push("", "--- Event Log ---", "");
   state.log.forEach(e => lines.push(`[${e.ts}] ${e.msg}`));
@@ -164,25 +200,110 @@ function exportLog() {
   a.click();
 }
 
+function exportRenameScript() {
+  const lines = [
+    "#!/bin/bash",
+    "# Auto-generated rename script for EDD SDI downloads",
+    `# Generated: ${new Date().toISOString()}`,
+    "#",
+    "# Review this script, then run:",
+    "#   chmod +x rename-edd.sh && ./rename-edd.sh",
+    "",
+    'DEST="${HOME}/Documents/Finances/Benefits/SDI appeal/INBOX"',
+    'SRC="${HOME}/Downloads"',
+    'mkdir -p "$DEST"',
+    "",
+  ];
+
+  MESSAGES.forEach((msg, i) => {
+    const src = state.filenames[i];
+    const dest = idealName(i);
+    if (!src || state.statuses[i] !== "downloaded") {
+      lines.push(`# MSG-${String(msg.num).padStart(2,"0")}: ${state.statuses[i] || 'pending'} — ${msg.subject}`);
+      return;
+    }
+    lines.push(`# MSG-${String(msg.num).padStart(2,"0")}: ${msg.subject}`);
+    lines.push(`mv "$SRC/${src}" "$DEST/${dest}"`);
+    lines.push("");
+  });
+
+  lines.push('echo "Done. Files moved to $DEST"');
+  lines.push('ls -la "$DEST"');
+
+  const pre = document.createElement("pre");
+  pre.className = "rename-script";
+  pre.textContent = lines.join("\n");
+
+  const output = document.getElementById("rename-output");
+  output.innerHTML = '<div class="section-label">Rename Script (copy or download)</div>';
+  output.appendChild(pre);
+
+  // Also offer download
+  const blob = new Blob([lines.join("\n")], { type: "text/plain" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "rename-edd.sh";
+  a.click();
+}
+
 function resetAll() {
-  if (!confirm("Reset all statuses to pending?")) return;
+  if (!confirm("Reset all statuses and filenames to empty?")) return;
   state.statuses = MESSAGES.map(() => "pending");
+  state.filenames = MESSAGES.map(() => "");
   state.log = [];
   save();
   render();
 }
 
-// Expose a global API so the Claude extension can update status via console
+// Global API for the Claude browser extension to call via console
 window.eddTracker = {
-  done(n) { state.statuses[n - 1] = "downloaded"; addLog(`MSG-${n} downloaded`, "success"); save(); render(); },
-  fail(n, reason) { state.statuses[n - 1] = "failed"; addLog(`MSG-${n} failed: ${reason}`, "error"); save(); render(); },
-  textOnly(n) { state.statuses[n - 1] = "text-only"; addLog(`MSG-${n} text-only (no PDF)`, "info"); save(); render(); },
-  skip(n, reason) { state.statuses[n - 1] = "skipped"; addLog(`MSG-${n} skipped: ${reason}`, "info"); save(); render(); },
-  active(n) { state.statuses[n - 1] = "active"; addLog(`MSG-${n} processing...`, "info"); save(); render(); },
-  status() { return MESSAGES.map((m, i) => `MSG-${m.num}: ${state.statuses[i]}`).join("\n"); },
+  // Mark message N as downloaded, optionally record the Chrome filename
+  done(n, filename) {
+    state.statuses[n - 1] = "downloaded";
+    if (filename) state.filenames[n - 1] = filename;
+    addLog(`MSG-${n} downloaded` + (filename ? ` as "${filename}"` : ""), "success");
+    save(); render();
+  },
+  fail(n, reason) {
+    state.statuses[n - 1] = "failed";
+    addLog(`MSG-${n} FAILED: ${reason || "unknown"}`, "error");
+    save(); render();
+  },
+  textOnly(n) {
+    state.statuses[n - 1] = "text-only";
+    addLog(`MSG-${n} text-only (no PDF link)`, "info");
+    save(); render();
+  },
+  skip(n, reason) {
+    state.statuses[n - 1] = "skipped";
+    addLog(`MSG-${n} skipped: ${reason || ""}`, "info");
+    save(); render();
+  },
+  active(n) {
+    state.statuses[n - 1] = "active";
+    addLog(`MSG-${n} processing...`, "info");
+    save(); render();
+  },
+  filename(n, name) {
+    state.filenames[n - 1] = name;
+    addLog(`MSG-${n} filename: "${name}"`, "info");
+    save(); render();
+  },
+  status() {
+    return MESSAGES.map((m, i) =>
+      `MSG-${String(m.num).padStart(2,"0")}: ${state.statuses[i].padEnd(12)} ${state.filenames[i] || ""}`
+    ).join("\n");
+  },
+  summary() {
+    const done = state.statuses.filter(s => s === "downloaded").length;
+    const failed = state.statuses.filter(s => s === "failed").length;
+    const text = state.statuses.filter(s => s === "text-only").length;
+    return `Downloaded: ${done}, Failed: ${failed}, Text-only: ${text}, Remaining: ${19 - done - failed - text}`;
+  }
 };
 
-console.log("EDD SDI Tracker loaded. API: eddTracker.done(n), .fail(n, reason), .textOnly(n), .status()");
+console.log("%cEDD SDI Tracker v2", "color: #e94560; font-size: 14px; font-weight: bold");
+console.log("API: eddTracker.done(n, 'filename.pdf'), .fail(n, 'reason'), .textOnly(n), .status(), .summary()");
 render();
 </script>
 </body>
