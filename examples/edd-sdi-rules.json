@@ -1,0 +1,47 @@
+{
+  "version": "1.0",
+  "description": "EDD SDI portal download routing — catches PDFs from the portal and routes them to the INBOX folder",
+  "rules": [
+    {
+      "name": "EDD DE Forms",
+      "patterns": ["*.pdf"],
+      "contains": ["DE2", "DE4", "DE 2", "DE 4", "DE-2", "DE-4", "DE_2", "DE_4", "DE2500", "DE2525", "DE2517", "DE429"],
+      "destination": "~/Documents/Finances/Benefits/SDI appeal/INBOX/",
+      "action": "move",
+      "on_conflict": "rename",
+      "notify": true
+    },
+    {
+      "name": "EDD Claim Documents",
+      "patterns": ["*.pdf"],
+      "contains": ["EDD", "SDI", "Disability", "Benefit", "Claim", "DI-"],
+      "destination": "~/Documents/Finances/Benefits/SDI appeal/INBOX/",
+      "action": "move",
+      "on_conflict": "rename",
+      "notify": true
+    },
+    {
+      "name": "EDD Portal Downloads (MSG naming)",
+      "patterns": ["MSG-*.pdf"],
+      "destination": "~/Documents/Finances/Benefits/SDI appeal/INBOX/",
+      "action": "move",
+      "on_conflict": "rename",
+      "notify": true
+    },
+    {
+      "name": "EDD Generic Portal PDFs",
+      "patterns": ["*.pdf"],
+      "contains": ["Notice", "Computation", "Determination", "Exhaustion", "Payment", "Adjustment"],
+      "destination": "~/Documents/Finances/Benefits/SDI appeal/INBOX/",
+      "action": "move",
+      "on_conflict": "rename",
+      "notify": true
+    }
+  ],
+  "defaults": {
+    "min_age_seconds": 10,
+    "check_interval_seconds": 15,
+    "create_destinations": true,
+    "log_file": "~/.download-router-edd.log"
+  }
+}

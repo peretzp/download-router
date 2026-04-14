@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>EDD SDI Download Tracker — DI-1014-230-142</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #1a1a2e; color: #eee; padding: 20px; max-width: 800px; margin: 0 auto; }
+  h1 { font-size: 18px; margin-bottom: 4px; color: #e94560; }
+  .subtitle { font-size: 12px; color: #888; margin-bottom: 16px; }
+  .stats { display: flex; gap: 16px; margin-bottom: 16px; }
+  .stat { background: #16213e; padding: 10px 16px; border-radius: 8px; text-align: center; flex: 1; }
+  .stat .num { font-size: 24px; font-weight: bold; }
+  .stat .label { font-size: 11px; color: #888; margin-top: 2px; }
+  .stat.done .num { color: #4ecca3; }
+  .stat.fail .num { color: #e94560; }
+  .stat.pend .num { color: #f0c040; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; padding: 6px 8px; background: #16213e; color: #888; font-weight: 500; font-size: 11px; text-transform: uppercase; }
+  td { padding: 6px 8px; border-bottom: 1px solid #222; }
+  tr.done { opacity: 0.6; }
+  tr.done td:first-child::before { content: "✓ "; color: #4ecca3; }
+  tr.fail td:first-child::before { content: "✗ "; color: #e94560; }
+  tr.active { background: #16213e; }
+  tr.active td:first-child::before { content: "▶ "; color: #f0c040; }
+  tr.skip td:first-child::before { content: "— "; color: #666; }
+  .priority-high { color: #e94560; font-weight: bold; }
+  .priority-medium { color: #f0c040; }
+  .priority-low { color: #666; }
+  .status { font-size: 11px; padding: 2px 6px; border-radius: 4px; }
+  .status-pending { background: #333; color: #888; }
+  .status-downloaded { background: #1a3a2a; color: #4ecca3; }
+  .status-text-only { background: #2a2a1a; color: #c0a030; }
+  .status-failed { background: #3a1a1a; color: #e94560; }
+  .status-skipped { background: #222; color: #666; }
+  .log { background: #0d1117; border: 1px solid #333; border-radius: 8px; padding: 12px; margin-top: 16px; font-family: 'SF Mono', Monaco, monospace; font-size: 11px; max-height: 200px; overflow-y: auto; }
+  .log-entry { padding: 2px 0; border-bottom: 1px solid #1a1a1a; }
+  .log-entry.success { color: #4ecca3; }
+  .log-entry.error { color: #e94560; }
+  .log-entry.info { color: #888; }
+  .ts { color: #555; margin-right: 8px; }
+  button { background: #e94560; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; margin: 4px; }
+  button:hover { background: #c73650; }
+  button.secondary { background: #16213e; }
+  .controls { margin-top: 12px; }
+</style>
+</head>
+<body>
+
+<h1>EDD SDI Download Tracker</h1>
+<p class="subtitle">Claim DI-1014-230-142 — Peretz Partensky — 19 Inbox Messages</p>
+
+<div class="stats">
+  <div class="stat done"><div class="num" id="count-done">0</div><div class="label">Downloaded</div></div>
+  <div class="stat pend"><div class="num" id="count-pending">19</div><div class="label">Pending</div></div>
+  <div class="stat fail"><div class="num" id="count-failed">0</div><div class="label">Failed</div></div>
+</div>
+
+<table>
+  <thead><tr><th>#</th><th>Date</th><th>Subject</th><th>Priority</th><th>Status</th></tr></thead>
+  <tbody id="msg-table"></tbody>
+</table>
+
+<div class="log" id="log"></div>
+
+<div class="controls">
+  <button onclick="exportLog()">Export Log</button>
+  <button class="secondary" onclick="resetAll()">Reset All</button>
+</div>
+
+<script>
+const MESSAGES = [
+  { num: 1,  date: "11-01-2025", subject: "Additional Benefits for DI Claimants", priority: "low" },
+  { num: 2,  date: "12-08-2025", subject: "DE 429D, Notice of Computation", priority: "high" },
+  { num: 3,  date: "12-09-2025", subject: "DE 2517-18, Notice of Claim Date Adjustment", priority: "high" },
+  { num: 4,  date: "12-19-2025", subject: "DE 2517-01, Notice of Determination", priority: "high" },
+  { num: 5,  date: "01-15-2026", subject: "Response to Your inquiry", priority: "high" },
+  { num: 6,  date: "01-16-2026", subject: "Electronic Benefit Payment DE 2500E", priority: "medium" },
+  { num: 7,  date: "01-16-2026", subject: "Electronic Benefit Payment DE 2500E", priority: "medium" },
+  { num: 8,  date: "01-16-2026", subject: "Electronic Benefit Payment DE 2500E", priority: "medium" },
+  { num: 9,  date: "01-16-2026", subject: "Electronic Benefit Payment DE 2500E", priority: "medium" },
+  { num: 10, date: "02-03-2026", subject: "Electronic Benefit Payment DE 2500E", priority: "medium" },
+  { num: 11, date: "02-04-2026", subject: "New Medical Information Received", priority: "medium" },
+  { num: 12, date: "02-10-2026", subject: "Electronic Benefit Payment DE 2500E", priority: "medium" },
+  { num: 13, date: "02-11-2026", subject: "Notice of Automatic Payment", priority: "medium" },
+  { num: 14, date: "02-18-2026", subject: "Electronic Benefit Payment DE 2500E", priority: "medium" },
+  { num: 15, date: "03-03-2026", subject: "Electronic Benefit Payment DE 2500E", priority: "medium" },
+  { num: 16, date: "03-17-2026", subject: "Electronic Benefit Payment DE 2500E", priority: "medium" },
+  { num: 17, date: "03-31-2026", subject: "Electronic Benefit Payment DE 2500E", priority: "high" },
+  { num: 18, date: "04-02-2026", subject: "Electronic Benefit Payment DE 2500E", priority: "medium" },
+  { num: 19, date: "04-03-2026", subject: "DE 2525-A, Notice of Exhaustion", priority: "low" },
+];
+
+// State persists in localStorage
+const STATE_KEY = "edd-sdi-tracker";
+let state = JSON.parse(localStorage.getItem(STATE_KEY) || "null") || {
+  statuses: MESSAGES.map(() => "pending"),
+  log: []
+};
+
+function save() { localStorage.setItem(STATE_KEY, JSON.stringify(state)); }
+
+function render() {
+  const tbody = document.getElementById("msg-table");
+  tbody.innerHTML = "";
+  let done = 0, pending = 0, failed = 0;
+
+  MESSAGES.forEach((msg, i) => {
+    const status = state.statuses[i];
+    if (status === "downloaded") done++;
+    else if (status === "failed") failed++;
+    else pending++;
+
+    const tr = document.createElement("tr");
+    tr.className = status === "downloaded" ? "done" : status === "failed" ? "fail" : status === "text-only" ? "skip" : status === "active" ? "active" : "";
+    tr.innerHTML = `
+      <td>${msg.num}</td>
+      <td>${msg.date}</td>
+      <td>${msg.subject}</td>
+      <td><span class="priority-${msg.priority}">${msg.priority}</span></td>
+      <td><span class="status status-${status}" onclick="cycleStatus(${i})">${status}</span></td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById("count-done").textContent = done;
+  document.getElementById("count-pending").textContent = pending;
+  document.getElementById("count-failed").textContent = failed;
+
+  const logEl = document.getElementById("log");
+  logEl.innerHTML = state.log.map(e =>
+    `<div class="log-entry ${e.type}"><span class="ts">${e.ts}</span>${e.msg}</div>`
+  ).join("");
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+function cycleStatus(i) {
+  const order = ["pending", "downloaded", "text-only", "failed"];
+  const cur = order.indexOf(state.statuses[i]);
+  state.statuses[i] = order[(cur + 1) % order.length];
+  addLog(`MSG-${MESSAGES[i].num} → ${state.statuses[i]}`, state.statuses[i] === "downloaded" ? "success" : state.statuses[i] === "failed" ? "error" : "info");
+  save();
+  render();
+}
+
+function addLog(msg, type = "info") {
+  const ts = new Date().toLocaleTimeString();
+  state.log.push({ ts, msg, type });
+  if (state.log.length > 200) state.log = state.log.slice(-100);
+  save();
+}
+
+function exportLog() {
+  const lines = [`EDD SDI Download Log — ${new Date().toISOString()}`, ""];
+  MESSAGES.forEach((msg, i) => {
+    lines.push(`MSG-${String(msg.num).padStart(2, "0")} | ${msg.date} | ${msg.subject} | ${state.statuses[i]}`);
+  });
+  lines.push("", "--- Event Log ---", "");
+  state.log.forEach(e => lines.push(`[${e.ts}] ${e.msg}`));
+  const blob = new Blob([lines.join("\n")], { type: "text/plain" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `edd-sdi-download-log-${new Date().toISOString().slice(0,10)}.txt`;
+  a.click();
+}
+
+function resetAll() {
+  if (!confirm("Reset all statuses to pending?")) return;
+  state.statuses = MESSAGES.map(() => "pending");
+  state.log = [];
+  save();
+  render();
+}
+
+// Expose a global API so the Claude extension can update status via console
+window.eddTracker = {
+  done(n) { state.statuses[n - 1] = "downloaded"; addLog(`MSG-${n} downloaded`, "success"); save(); render(); },
+  fail(n, reason) { state.statuses[n - 1] = "failed"; addLog(`MSG-${n} failed: ${reason}`, "error"); save(); render(); },
+  textOnly(n) { state.statuses[n - 1] = "text-only"; addLog(`MSG-${n} text-only (no PDF)`, "info"); save(); render(); },
+  skip(n, reason) { state.statuses[n - 1] = "skipped"; addLog(`MSG-${n} skipped: ${reason}`, "info"); save(); render(); },
+  active(n) { state.statuses[n - 1] = "active"; addLog(`MSG-${n} processing...`, "info"); save(); render(); },
+  status() { return MESSAGES.map((m, i) => `MSG-${m.num}: ${state.statuses[i]}`).join("\n"); },
+};
+
+console.log("EDD SDI Tracker loaded. API: eddTracker.done(n), .fail(n, reason), .textOnly(n), .status()");
+render();
+</script>
+</body>
+</html>
