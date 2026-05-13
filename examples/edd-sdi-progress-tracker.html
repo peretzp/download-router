@@ -80,26 +80,28 @@
 <div id="rename-output"></div>
 
 <script>
+// formId matches the convention used by edd-sdi-rename.sh so filenames
+// generated here are consistent with what the script produces from PDF content.
 const MESSAGES = [
-  { num: 1,  date: "2025-11-01", subject: "Additional Benefits for DI Claimants", priority: "low",    formId: "" },
-  { num: 2,  date: "2025-12-08", subject: "DE 429D, Notice of Computation",       priority: "high",   formId: "DE-429D" },
-  { num: 3,  date: "2025-12-09", subject: "DE 2517-18, Claim Date Adjustment",    priority: "high",   formId: "DE-2517-18" },
-  { num: 4,  date: "2025-12-19", subject: "DE 2517-01, Notice of Determination",  priority: "high",   formId: "DE-2517-01" },
-  { num: 5,  date: "2026-01-15", subject: "Response to Your inquiry",             priority: "high",   formId: "Claim-Update-Response" },
-  { num: 6,  date: "2026-01-16", subject: "Electronic Benefit Payment DE 2500E",  priority: "medium", formId: "DE-2500E" },
-  { num: 7,  date: "2026-01-16", subject: "Electronic Benefit Payment DE 2500E",  priority: "medium", formId: "DE-2500E" },
-  { num: 8,  date: "2026-01-16", subject: "Electronic Benefit Payment DE 2500E",  priority: "medium", formId: "DE-2500E" },
-  { num: 9,  date: "2026-01-16", subject: "Electronic Benefit Payment DE 2500E",  priority: "medium", formId: "DE-2500E" },
-  { num: 10, date: "2026-02-03", subject: "Electronic Benefit Payment DE 2500E",  priority: "medium", formId: "DE-2500E" },
-  { num: 11, date: "2026-02-04", subject: "New Medical Information Received",     priority: "medium", formId: "Medical-Info" },
-  { num: 12, date: "2026-02-10", subject: "Electronic Benefit Payment DE 2500E",  priority: "medium", formId: "DE-2500E" },
-  { num: 13, date: "2026-02-11", subject: "Notice of Automatic Payment",          priority: "medium", formId: "Auto-Payment-Notice" },
-  { num: 14, date: "2026-02-18", subject: "Electronic Benefit Payment DE 2500E",  priority: "medium", formId: "DE-2500E" },
-  { num: 15, date: "2026-03-03", subject: "Electronic Benefit Payment DE 2500E",  priority: "medium", formId: "DE-2500E" },
-  { num: 16, date: "2026-03-17", subject: "Electronic Benefit Payment DE 2500E",  priority: "medium", formId: "DE-2500E" },
-  { num: 17, date: "2026-03-31", subject: "Electronic Benefit Payment DE 2500E",  priority: "high",   formId: "DE-2500E" },
-  { num: 18, date: "2026-04-02", subject: "Electronic Benefit Payment DE 2500E",  priority: "medium", formId: "DE-2500E" },
-  { num: 19, date: "2026-04-03", subject: "DE 2525-A, Notice of Exhaustion",      priority: "low",    formId: "DE-2525A" },
+  { num: 1,  date: "2025-11-01", subject: "Additional Benefits for DI Claimants", priority: "low",    formId: "Additional-Benefits-for-DI-Claimants" },
+  { num: 2,  date: "2025-12-08", subject: "DE 429D, Notice of Computation",       priority: "high",   formId: "DE-429D_Notice-of-Computation" },
+  { num: 3,  date: "2025-12-09", subject: "DE 2517-18, Claim Date Adjustment",    priority: "high",   formId: "DE-2517-18_Notice-of-Claim-Date-Adjustment" },
+  { num: 4,  date: "2025-12-19", subject: "DE 2517-01, Notice of Determination",  priority: "high",   formId: "DE-2517-01_Notice-of-Determination" },
+  { num: 5,  date: "2026-01-15", subject: "Response to Your inquiry",             priority: "high",   formId: "Response-to-Inquiry" },
+  { num: 6,  date: "2026-01-16", subject: "Electronic Benefit Payment DE 2500E",  priority: "medium", formId: "DE-2500E_Electronic-Benefit-Payment" },
+  { num: 7,  date: "2026-01-16", subject: "Electronic Benefit Payment DE 2500E",  priority: "medium", formId: "DE-2500E_Electronic-Benefit-Payment" },
+  { num: 8,  date: "2026-01-16", subject: "Electronic Benefit Payment DE 2500E",  priority: "medium", formId: "DE-2500E_Electronic-Benefit-Payment" },
+  { num: 9,  date: "2026-01-16", subject: "Electronic Benefit Payment DE 2500E",  priority: "medium", formId: "DE-2500E_Electronic-Benefit-Payment" },
+  { num: 10, date: "2026-02-03", subject: "Electronic Benefit Payment DE 2500E",  priority: "medium", formId: "DE-2500E_Electronic-Benefit-Payment" },
+  { num: 11, date: "2026-02-04", subject: "New Medical Information Received",     priority: "medium", formId: "New-Medical-Information-Received" },
+  { num: 12, date: "2026-02-10", subject: "Electronic Benefit Payment DE 2500E",  priority: "medium", formId: "DE-2500E_Electronic-Benefit-Payment" },
+  { num: 13, date: "2026-02-11", subject: "Notice of Automatic Payment",          priority: "medium", formId: "Notice-of-Automatic-Payment" },
+  { num: 14, date: "2026-02-18", subject: "Electronic Benefit Payment DE 2500E",  priority: "medium", formId: "DE-2500E_Electronic-Benefit-Payment" },
+  { num: 15, date: "2026-03-03", subject: "Electronic Benefit Payment DE 2500E",  priority: "medium", formId: "DE-2500E_Electronic-Benefit-Payment" },
+  { num: 16, date: "2026-03-17", subject: "Electronic Benefit Payment DE 2500E",  priority: "medium", formId: "DE-2500E_Electronic-Benefit-Payment" },
+  { num: 17, date: "2026-03-31", subject: "Electronic Benefit Payment DE 2500E",  priority: "high",   formId: "DE-2500E_Electronic-Benefit-Payment" },
+  { num: 18, date: "2026-04-02", subject: "Electronic Benefit Payment DE 2500E",  priority: "medium", formId: "DE-2500E_Electronic-Benefit-Payment" },
+  { num: 19, date: "2026-04-03", subject: "DE 2525-A, Notice of Exhaustion",      priority: "low",    formId: "DE-2525A_Notice-of-Exhaustion" },
 ];
 
 const STATE_KEY = "edd-sdi-tracker-v2";
@@ -114,15 +116,13 @@ if (!state.filenames) state.filenames = MESSAGES.map(() => "");
 function save() { localStorage.setItem(STATE_KEY, JSON.stringify(state)); }
 
 function idealName(i) {
+  // Matches edd-sdi-rename.sh sequence numbering: first duplicate has no
+  // suffix, subsequent ones get _1, _2, _3.
   const m = MESSAGES[i];
-  // For same-date duplicates (DE 2500E on 01-16), append a sequence letter
-  const sameDateSameForm = MESSAGES.filter((o, j) => j !== i && o.date === m.date && o.formId === m.formId);
-  let suffix = "";
-  if (sameDateSameForm.length > 0) {
-    const allSame = MESSAGES.filter(o => o.date === m.date && o.formId === m.formId);
-    const idx = allSame.indexOf(m);
-    suffix = "_" + String.fromCharCode(97 + idx); // a, b, c, d
-  }
+  const allSame = MESSAGES.filter(o => o.date === m.date && o.formId === m.formId);
+  if (allSame.length === 1) return `${m.date}_${m.formId}.pdf`;
+  const idx = allSame.indexOf(m);
+  const suffix = idx === 0 ? "" : `_${idx}`;
   return `${m.date}_${m.formId}${suffix}.pdf`;
 }
 

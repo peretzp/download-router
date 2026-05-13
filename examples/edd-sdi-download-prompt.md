@@ -22,12 +22,27 @@ that pop up silently and **block all clicks on the page beneath them**:
 2. **"Confirm Navigation"** — appears after clicking external links, has "OK"/"Cancel"
 
 **Before EVERY click you make** (navigation, download, anything), run this JavaScript
-first to dismiss any visible dialogs. This is safe — it just clicks DOM buttons,
-no network requests:
+first to dismiss any visible dialogs. This is safe — it just clicks button elements
+that are already on the page, no network requests:
 
 ```javascript
-document.querySelectorAll('a[id*="Continue"], a[id*="btnOK"], input[id*="Continue"], input[id*="btnOK"]').forEach(el => { if (el.offsetParent !== null) el.click(); });
+(() => {
+  const isVisible = el => el.offsetParent !== null && getComputedStyle(el).visibility !== 'hidden';
+  const labelOf = el => (el.value || el.textContent || el.getAttribute('aria-label') || '').trim();
+  // Click "Continue" (extends session) or "Cancel" (dismisses nav prompt without leaving)
+  const wanted = /^(continue|cancel)$/i;
+  let n = 0;
+  document.querySelectorAll('button, input[type="button"], input[type="submit"], a').forEach(el => {
+    if (isVisible(el) && wanted.test(labelOf(el))) { el.click(); n++; }
+  });
+  return `dismissed ${n} dialog buttons`;
+})();
 ```
+
+This is robust against EDD changing button IDs — it matches by visible label,
+not by a guessed `id` substring. It clicks "Continue" (to extend the session) and
+"Cancel" (to dismiss the navigation-confirmation modal). It deliberately does NOT
+click "OK" — that would proceed with an unwanted navigation.
 
 If you skip this step, your clicks will silently fail and you'll waste dozens of
 steps wondering why nothing happens. The dialogs are invisible in screenshots but
