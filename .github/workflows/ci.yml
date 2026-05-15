@@ -1,0 +1,57 @@
+name: CI — Life Experience Tests
+
+# Every lesson learned from a failed browser extension session is encoded
+# as a test. CI ensures institutional memory survives refactoring.
+#
+# Test layers:
+#   1. Prompt constraints — does the prompt still encode every learned failure mode?
+#   2. Rename script — does it correctly identify, date, and rename EDD PDFs?
+#   3. Dialog snippet — does the JS snippet dismiss the right buttons?
+#   4. Consistency — do the tracker and script agree on filenames?
+#   5. Core router — does download-router.js itself still work?
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  life-experience:
+    name: Institutional Memory
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        node-version: [19, 20, 22]
+        exclude:
+          # Only need multi-OS for the rename script (BSD vs GNU)
+          # Node version matrix is for the JS tests and core router
+          - os: macos-latest
+            node-version: 19
+          - os: macos-latest
+            node-version: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: "Layer 1: Prompt constraints (institutional memory)"
+        run: bash tests/test-prompt-constraints.sh
+
+      - name: "Layer 2: Rename script (end-to-end)"
+        run: bash tests/test-rename.sh
+
+      - name: "Layer 3: Dialog snippet (behavioral)"
+        run: node tests/test-dialog-snippet.js
+
+      - name: "Layer 4: Tracker ↔ script consistency"
+        run: node tests/test-tracker-consistency.js
+
+      - name: "Layer 5: Core router (syntax + --help)"
+        run: |
+          node -c download-router.js
+          node download-router.js --help
